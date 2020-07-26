@@ -5,6 +5,8 @@
 // data. Your task is to change the code so that the producer as well
 // as the consumer can run concurrently
 //
+// Initially:     3.6s
+// After changes: 1.98s
 
 package main
 
@@ -13,19 +15,21 @@ import (
 	"time"
 )
 
-func producer(stream Stream) (tweets []*Tweet) {
+func producer(stream Stream, tweets chan *Tweet) {
+	defer close(tweets)
 	for {
 		tweet, err := stream.Next()
 		if err == ErrEOF {
-			return tweets
+			return
 		}
 
-		tweets = append(tweets, tweet)
+		tweets <- tweet
+		// tweets = append(tweets, tweet)
 	}
 }
 
-func consumer(tweets []*Tweet) {
-	for _, t := range tweets {
+func consumer(tweets chan *Tweet) {
+	for t := range tweets {
 		if t.IsTalkingAboutGo() {
 			fmt.Println(t.Username, "\ttweets about golang")
 		} else {
@@ -37,9 +41,10 @@ func consumer(tweets []*Tweet) {
 func main() {
 	start := time.Now()
 	stream := GetMockStream()
+	tweets := make(chan *Tweet, 1)
 
 	// Producer
-	tweets := producer(stream)
+	go producer(stream, tweets)
 
 	// Consumer
 	consumer(tweets)
